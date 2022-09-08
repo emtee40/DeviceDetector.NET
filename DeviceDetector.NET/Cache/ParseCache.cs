@@ -35,7 +35,6 @@ namespace DeviceDetectorNET.Cache
                 {
                     Logger?.LogWarning("Unable to create directory {0} due to {1}", dir, exception);
                     // for now, swallow this error so we do not accidentally impact an unknown use case
-                    ;
                     //throw new DirectoryNotFoundException($"Directory {dir} was not found and could not create it");
                 }
             }
