@@ -1,22 +1,29 @@
-﻿using DeviceDetectorNET.Web.Models;
+using DeviceDetectorNET;
 using DeviceDetectorNET.Parser;
 using Microsoft.AspNetCore.Mvc;
-using System;
 
-namespace DeviceDetectorNET.Web.Controllers
+namespace DeviceDetectorNet.Web.Controllers
 {
-    public class HomeController : Controller
-    {
-        public IActionResult Index()
-        {
-            DeviceDetectorNET.DeviceDetector.SetVersionTruncation(VersionTruncation.VERSION_TRUNCATION_NONE);
+    [ApiController]
 
-            var userAgent = Request.Headers["User-Agent"];
-            var result = DeviceDetectorNET.DeviceDetector.GetInfoFromUserAgent(userAgent);
+    [Route("[controller]")]
+    public class HomeController(ILogger<HomeController> logger) : ControllerBase
+    {
+        [HttpGet]
+        public object Get()
+        {
+            DeviceDetector.SetVersionTruncation(VersionTruncation.VERSION_TRUNCATION_NONE);
+
+            var userAgent = Request.Headers.UserAgent; // change this to the useragent you want to parse
+            var headers = Request.Headers.ToDictionary(a => a.Key, a => a.Value.ToArray().FirstOrDefault());
+            var clientHints = ClientHints.Factory(headers);  // client hints are optional
+
+            var result = DeviceDetector.GetInfoFromUserAgent(userAgent, clientHints);
 
             var output = result.Success ? result.ToString().Replace(Environment.NewLine, "<br />") : "Unknown";
+            logger.LogDebug(output);
 
-            return View(new IndexModel { Content = output });
+            return result;
         }
     }
 }

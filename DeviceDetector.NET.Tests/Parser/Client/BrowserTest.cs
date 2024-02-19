@@ -8,71 +8,94 @@ using System.Linq;
 using System.Threading.Tasks;
 using DeviceDetectorNET.Results.Client;
 
-namespace DeviceDetectorNET.Tests.Parser.Client
+namespace DeviceDetectorNET.Tests.Parser.Client;
+
+[Trait("Category", "Browser")]
+public class BrowserTest
 {
-    [Trait("Category", "Browser")]
-    public class BrowserTest
+    private readonly List<BrowserFixture> _fixtureData;
+
+    public BrowserTest()
     {
-        private readonly List<BrowserFixture> _fixtureData;
+        var path = $"{Utils.CurrentDirectory()}\\{@"Parser\Client\fixtures\browser.yml"}";
 
-        public BrowserTest()
+        var parser = new YamlParser<List<BrowserFixture>>();
+        _fixtureData = parser.ParseFile(path);
+
+        //replace null
+        _fixtureData = _fixtureData.Select(f =>
         {
-            var path = $"{Utils.CurrentDirectory()}\\{@"Parser\Client\fixtures\browser.yml"}";
+            f.client.version ??= string.Empty;
+            f.client.engine ??= string.Empty;
+            f.client.engine_version ??= string.Empty;
+            return f;
+        }).ToList();
+    }
 
-            var parser = new YamlParser<List<BrowserFixture>>();
-            _fixtureData = parser.ParseFile(path);
+    [Fact]
+    public void TestGetAvailableBrowserFamilies()
+    {
+        BrowserParser.GetAvailableBrowserFamilies().Count.Should().BeGreaterThan(5);
+    }
 
-            //replace null
-            _fixtureData = _fixtureData.Select(f =>
+
+    [Fact]
+    public void TestAllBrowsersTested()
+    {
+        BrowserParser.SetVersionTruncation(BrowserParser.VERSION_TRUNCATION_NONE);
+
+        Parallel.ForEach(_fixtureData, fixture =>
+        {
+            var browsers = new BrowserParser();
+            browsers.SetUserAgent(fixture.user_agent);
+            if (fixture.headers != null)
             {
-                f.client.version ??= string.Empty;
-                f.client.engine ??= string.Empty;
-                f.client.engine_version ??= string.Empty;
-                return f;
-            }).ToList();
-        }
+                browsers.SetClientHints(ClientHints.Factory(fixture.headers));
+            }
+            var result = browsers.Parse();
 
-        [Fact]
-        public void TestGetAvailableBrowserFamilies()
-        {
-            BrowserParser.GetAvailableBrowserFamilies().Count.Should().BeGreaterThan(5);
-        }
+            result.Success.Should().BeTrue("Match should be with success");
+            var browserResult = result.Match as BrowserMatchResult;
 
+            browserResult.Should().NotBeNull("Match should be of type BrowserMatchResult");
 
-        [Fact]
-        public void TestAllBrowsersTested()
-        {
-            BrowserParser.SetVersionTruncation(BrowserParser.VERSION_TRUNCATION_NONE);
+            if (browserResult == null) return;
 
-            Parallel.ForEach(_fixtureData, fixture =>
-            {
-                var browsers = new BrowserParser();
-                browsers.SetUserAgent(fixture.user_agent);
-                var result = browsers.Parse();
+            browserResult.Engine.Should()
+                .BeEquivalentTo(fixture.client.engine, "Engine should be equal " + fixture.user_agent);
+            browserResult.EngineVersion.Should().BeEquivalentTo(fixture.client.engine_version.ToString(),
+                "EngineVersion should be equal");
+            browserResult.Name.Should().BeEquivalentTo(fixture.client.name, "Names should be equal");
+            browserResult.Type.Should().BeEquivalentTo(fixture.client.type, "Type should be equal");
+            browserResult.Version.Should().BeEquivalentTo(fixture.client.version, "Version should be equal");
+        });
+    }
 
-                result.Success.Should().BeTrue("Match should be with success");
-                var browserResult = result.Match as BrowserMatchResult;
+    [Fact]
+    public void TestGetAvailableClients()
+    {
+        var available = new BrowserParser().GetAvailableClients();
+        BrowserParser.GetAvailableBrowsers().Count.Should().BeGreaterOrEqualTo(available.Count);
+    }
 
-                browserResult.Should().NotBeNull("Match should be of type BrowserMatchResult");
+    [Fact]
+    public void TestEngineVerison()
+    {
+        BrowserParser.SetVersionTruncation(BrowserParser.VERSION_TRUNCATION_NONE);
+        var browsers = new BrowserParser();
+        browsers.SetUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/98.0.4758.80 Safari/537.36");
 
-                if (browserResult == null) return;
+        //browsers.SetClientHints(ClientHints.Factory(
+        //    new Dictionary<string, string>
+        //{
+        //        {"Sec-CH-UA",@"""(Not(A:Brand"";v=""8.0.0.0"", ""WaveBrowser"";v=""1.1.6.4"", ""WaveBrowser"";v=""1.1.6.4""" },
+        //        {"Sec-CH-UA-Platform","Windows" },
+        //        {"Sec-CH-UA-Mobile","?0" },
+        //}));
+        var result = browsers.Parse();
+        var browserResult = result.Match as BrowserMatchResult;
 
-                browserResult.Engine.Should()
-                             .BeEquivalentTo(fixture.client.engine, "Engine should be equal " + fixture.user_agent);
-                browserResult.EngineVersion.Should().BeEquivalentTo(fixture.client.engine_version.ToString(),
-                    "EngineVersion should be equal");
-                browserResult.Name.Should().BeEquivalentTo(fixture.client.name, "Names should be equal");
-                browserResult.Type.Should().BeEquivalentTo(fixture.client.type, "Type should be equal");
-                browserResult.Version.Should().BeEquivalentTo(fixture.client.version, "Version should be equal");
-            });
-        }
-
-        [Fact]
-        public void TestGetAvailableClients()
-        {
-            var available = new BrowserParser().GetAvailableClients();
-            BrowserParser.GetAvailableBrowsers().Count.Should().BeGreaterOrEqualTo(available.Count);
-        }
+        browserResult.Name.Should().NotBeEmpty();
 
     }
 }
