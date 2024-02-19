@@ -3,6 +3,7 @@ using Newtonsoft.Json;
 using System;
 using System.IO;
 using Microsoft.Extensions.Logging;
+
 namespace DeviceDetectorNET.Cache
 {
     internal class ParseCache : IParseCache
@@ -11,10 +12,10 @@ namespace DeviceDetectorNET.Cache
         {
         }
 
-        private static readonly Lazy<ParseCache> LazyCache = new Lazy<ParseCache>(InitializeCache);
+        private static readonly Lazy<ParseCache> LazyCache = new(InitializeCache);
         private LiteDatabase _cacheDatabase;
 
-        private static readonly JsonSerializerSettings JsonSettings = new JsonSerializerSettings
+        private static readonly JsonSerializerSettings JsonSettings = new()
         {
             ContractResolver = null,
             TypeNameHandling = TypeNameHandling.Auto
@@ -72,7 +73,7 @@ namespace DeviceDetectorNET.Cache
 
         public void Upsert(string key, DeviceDetectorCachedData data)
         {
-            var cachedData = new CachedDataHolder()
+            var cachedData = new CachedDataHolder
             {
                 Id = key,
                 Json = JsonConvert.SerializeObject(data, JsonSettings),
